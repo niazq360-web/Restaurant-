@@ -1,0 +1,5 @@
+sed -i 's/val products by viewModel.products.collectAsStateWithLifecycle()/val products by viewModel.products.collectAsStateWithLifecycle()\n    var searchQuery by remember { mutableStateOf("") }\n    val filteredProducts = products.filter { \n        it.name.contains(searchQuery, ignoreCase = true) || \n        it.category.contains(searchQuery, ignoreCase = true) \n    }/' app/src/main/java/com/example/ui/menu/MenuScreen.kt
+
+sed -i 's/Text("Menu Management", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)/Text("Menu Management", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)\n            OutlinedTextField(\n                value = searchQuery,\n                onValueChange = { searchQuery = it },\n                label = { Text("Search by name or category") },\n                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),\n                singleLine = true\n            )/' app/src/main/java/com/example/ui/menu/MenuScreen.kt
+
+sed -i 's/items(products) { product ->/items(filteredProducts) { product ->/' app/src/main/java/com/example/ui/menu/MenuScreen.kt

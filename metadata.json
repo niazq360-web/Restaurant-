@@ -1,0 +1,6 @@
+{
+  "name": "Restaurant POS",
+  "description": "Professional Restaurant Point of Sale system with billing, table management, and offline mode.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
