@@ -421,3 +421,438 @@
     </script>
 </body>
 </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Restaurant POS & Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Top Header Bar -->
+    <header class="bg-slate-800 border-b border-slate-700 p-4 flex flex-wrap justify-between items-center shadow-lg">
+        <div class="flex items-center gap-3">
+            <div class="bg-orange-500 text-white p-2 rounded-xl font-bold text-xl">🍽️</div>
+            <div>
+                <h1 id="top-res-name" class="text-lg font-bold text-white">My Restaurant</h1>
+                <p class="text-xs text-slate-400">Table: <span id="top-table" class="text-orange-400 font-semibold">1</span> | Active Session</p>
+            </div>
+        </div>
+        
+        <!-- Navigation Tabs -->
+        <nav class="flex gap-2 my-2 sm:my-0">
+            <button onclick="switchTab('dashboard')" id="btn-dashboard" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-orange-600 text-white transition">📊 Dashboard</button>
+            <button onclick="switchTab('pos')" id="btn-pos" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 text-slate-300 hover:bg-slate-600 transition">🛍️ POS Billing</button>
+            <button onclick="switchTab('menu')" id="btn-menu" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 text-slate-300 hover:bg-slate-600 transition">🍲 Menu Items</button>
+            <button onclick="switchTab('invoices')" id="btn-invoices" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 text-slate-300 hover:bg-slate-600 transition">🧾 Invoices</button>
+            <button onclick="switchTab('settings')" id="btn-settings" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 text-slate-300 hover:bg-slate-600 transition">⚙️ Profile</button>
+        </nav>
+
+        <div id="current-time" class="text-xs bg-slate-700 px-3 py-1.5 rounded-lg text-slate-300 font-mono"></div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4">
+
+        <!-- 1. DASHBOARD TAB -->
+        <section id="tab-dashboard" class="space-y-6">
+            <!-- Financial Cycle Banner -->
+            <div class="bg-gradient-to-r from-blue-900 to-indigo-900 p-6 rounded-2xl border border-blue-700 shadow-xl flex flex-col md:flex-row justify-between items-center gap-4">
+                <div>
+                    <span class="bg-blue-500/30 text-blue-300 text-xs px-3 py-1 rounded-full font-bold">12-Month Financial Cycle</span>
+                    <h2 class="text-2xl font-bold mt-2 text-white">Year 1 Active</h2>
+                    <p class="text-xs text-blue-200 mt-1">Day 45 of 365 Days Active</p>
+                </div>
+                <button onclick="switchTab('pos')" class="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg transition">
+                    + New Bill (POS)
+                </button>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-slate-800 border border-slate-700 p-5 rounded-2xl shadow">
+                    <p class="text-xs text-slate-400 font-medium">TOTAL SALES & PROFITS</p>
+                    <h3 id="stat-total-sales" class="text-3xl font-extrabold text-orange-400 mt-2">Rs. 0.00</h3>
+                    <p class="text-xs text-slate-500 mt-1">Updated real-time</p>
+                </div>
+                <div class="bg-slate-800 border border-slate-700 p-5 rounded-2xl shadow">
+                    <p class="text-xs text-slate-400 font-medium">TOTAL ORDERS</p>
+                    <h3 id="stat-total-orders" class="text-3xl font-extrabold text-emerald-400 mt-2">0</h3>
+                    <p class="text-xs text-slate-500 mt-1">Completed bills</p>
+                </div>
+                <div class="bg-slate-800 border border-slate-700 p-5 rounded-2xl shadow">
+                    <p class="text-xs text-slate-400 font-medium">ACTIVE TABLES</p>
+                    <h3 class="text-3xl font-extrabold text-sky-400 mt-2">5 Tables</h3>
+                    <p class="text-xs text-slate-500 mt-1">Ready for customers</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. POS BILLING TAB -->
+        <section id="tab-pos" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Menu Catalog (2 Cols) -->
+            <div class="lg:col-span-2 space-y-4">
+                <div class="flex justify-between items-center bg-slate-800 p-3 rounded-xl border border-slate-700">
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs text-slate-300 font-semibold">Select Table:</label>
+                        <select id="table-select" onchange="changeTable(this.value)" class="bg-slate-900 border border-slate-700 text-white text-xs px-3 py-1.5 rounded-lg">
+                            <option value="1">Table 1</option>
+                            <option value="2">Table 2</option>
+                            <option value="3">Table 3</option>
+                            <option value="VIP">VIP Table</option>
+                            <option value="Takeaway">Takeaway</option>
+                        </select>
+                    </div>
+                    <button onclick="switchTab('menu')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-2 rounded-lg font-bold transition">+ Manage Menu</button>
+                </div>
+
+                <!-- Categories -->
+                <div class="flex gap-2 overflow-x-auto pb-1">
+                    <button onclick="filterPOS('all')" class="px-4 py-2 bg-orange-600 text-white rounded-xl text-xs font-bold shadow">All Items</button>
+                    <button onclick="filterPOS('fastfood')" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs font-semibold hover:bg-slate-700">Fast Food</button>
+                    <button onclick="filterPOS('desi')" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs font-semibold hover:bg-slate-700">Desi Items</button>
+                    <button onclick="filterPOS('drinks')" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs font-semibold hover:bg-slate-700">Drinks</button>
+                </div>
+
+                <!-- Items Grid -->
+                <div id="pos-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+            </div>
+
+            <!-- Cart & Billing Summary (1 Col) -->
+            <div class="bg-slate-800 border border-slate-700 p-4 rounded-2xl flex flex-col justify-between h-[75vh]">
+                <div>
+                    <h3 class="font-bold text-white border-b border-slate-700 pb-2 mb-3 flex justify-between">
+                        <span>Current Order</span>
+                        <span id="cart-count" class="text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full">0 items</span>
+                    </h3>
+                    <div id="cart-items" class="space-y-2 overflow-y-auto max-h-[45vh] pr-1">
+                        <p class="text-slate-500 text-center py-12 text-xs">No items added to cart yet</p>
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-700 pt-4 space-y-2">
+                    <div class="flex justify-between text-xs text-slate-400">
+                        <span>Subtotal:</span>
+                        <span id="subtotal-amount">Rs. 0</span>
+                    </div>
+                    <div class="flex justify-between text-xs text-slate-400">
+                        <span>Tax (5%):</span>
+                        <span id="tax-amount">Rs. 0</span>
+                    </div>
+                    <div class="flex justify-between text-base font-bold text-white">
+                        <span>Total:</span>
+                        <span id="grand-total" class="text-orange-400">Rs. 0</span>
+                    </div>
+                    <button onclick="checkout()" class="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-bold text-sm shadow-lg transition mt-2">
+                        Complete Order & Print Bill
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. MENU ITEMS TAB -->
+        <section id="tab-menu" class="hidden space-y-6">
+            <div class="flex justify-between items-center bg-slate-800 p-4 rounded-2xl border border-slate-700">
+                <div>
+                    <h2 class="text-lg font-bold text-white">Menu & Items Catalog</h2>
+                    <p class="text-xs text-slate-400">Add or manage restaurant dishes</p>
+                </div>
+                <button onclick="openAddMenuModal()" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition">+ Add New Dish</button>
+            </div>
+
+            <div id="menu-management-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"></div>
+        </section>
+
+        <!-- 4. INVOICES TAB -->
+        <section id="tab-invoices" class="hidden space-y-6">
+            <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700">
+                <h2 class="text-lg font-bold text-white">Sales Invoices & History</h2>
+                <p class="text-xs text-slate-400">All past generated bills</p>
+            </div>
+            <div id="invoices-list" class="space-y-3">
+                <p class="text-slate-500 text-center py-12 text-sm">No invoices generated yet.</p>
+            </div>
+        </section>
+
+        <!-- 5. PROFILE & SETTINGS TAB -->
+        <section id="tab-settings" class="hidden space-y-6 max-w-xl mx-auto">
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 space-y-4">
+                <h2 class="text-lg font-bold text-white border-b border-slate-700 pb-2">Restaurant Profile & Details</h2>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1">Restaurant Name</label>
+                    <input type="text" id="setting-name" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1">Tagline / Branch Location</label>
+                    <input type="text" id="setting-tagline" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white">
+                </div>
+                <button onclick="saveProfile()" class="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-bold text-sm transition">
+                    Save Profile Settings
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal: Add Menu Item -->
+    <div id="modal-add-menu" class="fixed inset-0 bg-black/70 hidden flex justify-center items-center p-4 z-50">
+        <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl w-full max-w-sm space-y-4 shadow-2xl">
+            <h3 class="font-bold text-white text-base">Add New Dish</h3>
+            <input type="text" id="new-dish-name" placeholder="Dish Name (e.g. Zinger Burger)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white">
+            <select id="new-dish-category" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white">
+                <option value="fastfood">Fast Food</option>
+                <option value="desi">Desi Items</option>
+                <option value="drinks">Drinks</option>
+            </select>
+            <input type="number" id="new-dish-price" placeholder="Price (Rs.)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white">
+            <div class="flex gap-2 pt-2">
+                <button onclick="closeAddMenuModal()" class="w-1/2 bg-slate-700 text-slate-300 py-2.5 rounded-xl text-xs font-bold">Cancel</button>
+                <button onclick="saveNewDish()" class="w-1/2 bg-orange-500 text-white py-2.5 rounded-xl text-xs font-bold">Add Item</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // State data from LocalStorage
+        let appData = JSON.parse(localStorage.getItem('restaurant_pos_data')) || {
+            name: "Royal Restaurant POS",
+            tagline: "Best Food in Town",
+            table: "1",
+            menu: [
+                { id: 1, name: 'Zinger Burger', category: 'fastfood', price: 450, emoji: '🍔' },
+                { id: 2, name: 'Chicken Biryani', category: 'desi', price: 350, emoji: '🍛' },
+                { id: 3, name: 'Club Sandwich', category: 'fastfood', price: 300, emoji: '🥪' },
+                { id: 4, name: 'Cold Drink', category: 'drinks', price: 120, emoji: '🥤' },
+                { id: 5, name: 'Chicken Karahi', category: 'desi', price: 1100, emoji: '🍲' },
+                { id: 6, name: 'Mineral Water', category: 'drinks', price: 80, emoji: '💧' }
+            ],
+            cart: [],
+            invoices: [],
+            totalSales: 0
+        };
+
+        function saveData() {
+            localStorage.setItem('restaurant_pos_data', JSON.stringify(appData));
+        }
+
+        // Tab Switching
+        function switchTab(tabId) {
+            ['dashboard', 'pos', 'menu', 'invoices', 'settings'].forEach(t => {
+                document.getElementById(`tab-${t}`).classList.add('hidden');
+                document.getElementById(`btn-${t}`).className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 text-slate-300 hover:bg-slate-600 transition";
+            });
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            document.getElementById(`btn-${tabId}`).className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-orange-600 text-white transition";
+            
+            if(tabId === 'pos') renderPOS('all');
+            if(tabId === 'menu') renderMenuManagement();
+            if(tabId === 'invoices') renderInvoices();
+            if(tabId === 'dashboard') updateDashboardStats();
+        }
+
+        // Profile & Header Init
+        function initApp() {
+            document.getElementById('top-res-name').innerText = appData.name;
+            document.getElementById('top-table').innerText = appData.table;
+            document.getElementById('setting-name').value = appData.name;
+            document.getElementById('setting-tagline').value = appData.tagline;
+            updateDashboardStats();
+        }
+
+        function saveProfile() {
+            appData.name = document.getElementById('setting-name').value || "Restaurant";
+            appData.tagline = document.getElementById('setting-tagline').value || "";
+            saveData();
+            initApp();
+            alert("Profile updated successfully!");
+        }
+
+        function changeTable(tbl) {
+            appData.table = tbl;
+            document.getElementById('top-table').innerText = tbl;
+            saveData();
+        }
+
+        // POS Functions
+        function renderPOS(cat) {
+            const grid = document.getElementById('pos-grid');
+            grid.innerHTML = '';
+            const filtered = cat === 'all' ? appData.menu : appData.menu.filter(i => i.category === cat);
+
+            filtered.forEach(item => {
+                grid.innerHTML += `
+                    <div onclick="addToCart(${item.id})" class="bg-slate-800 border border-slate-700 p-3 rounded-xl cursor-pointer hover:border-orange-500 transition flex flex-col items-center text-center">
+                        <span class="text-3xl mb-1">${item.emoji || '🍽️'}</span>
+                        <h4 class="font-semibold text-white text-xs">${item.name}</h4>
+                        <p class="text-orange-400 font-bold text-xs mt-1">Rs. ${item.price}</p>
+                    </div>
+                `;
+            });
+        }
+
+        function filterPOS(cat) { renderPOS(cat); }
+
+        function addToCart(id) {
+            const item = appData.menu.find(i => i.id === id);
+            const existing = appData.cart.find(c => c.id === id);
+            if(existing) { existing.qty++; } else { appData.cart.push({ ...item, qty: 1 }); }
+            renderCart();
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cart-items');
+            const countEl = document.getElementById('cart-count');
+            const subtotalEl = document.getElementById('subtotal-amount');
+            const taxEl = document.getElementById('tax-amount');
+            const totalEl = document.getElementById('grand-total');
+
+            countEl.innerText = `${appData.cart.reduce((a,c)=>a+c.qty,0)} items`;
+
+            if(appData.cart.length === 0) {
+                container.innerHTML = `<p class="text-slate-500 text-center py-12 text-xs">No items added to cart yet</p>`;
+                subtotalEl.innerText = 'Rs. 0';
+                taxEl.innerText = 'Rs. 0';
+                totalEl.innerText = 'Rs. 0';
+                return;
+            }
+
+            container.innerHTML = '';
+            let subtotal = 0;
+
+            appData.cart.forEach((item, index) => {
+                subtotal += item.price * item.qty;
+                container.innerHTML += `
+                    <div class="flex justify-between items-center bg-slate-900 p-2.5 rounded-xl border border-slate-700 text-xs">
+                        <div>
+                            <p class="font-medium text-white">${item.name}</p>
+                            <p class="text-slate-400">Rs. ${item.price} x ${item.qty}</p>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="updateQty(${index}, 1)" class="bg-slate-700 px-2 py-0.5 rounded font-bold text-white">+</button>
+                            <span class="font-bold text-white">${item.qty}</span>
+                            <button onclick="updateQty(${index}, -1)" class="bg-slate-700 px-2 py-0.5 rounded font-bold text-white">-</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            let tax = Math.round(subtotal * 0.05);
+            let total = subtotal + tax;
+
+            subtotalEl.innerText = `Rs. ${subtotal}`;
+            taxEl.innerText = `Rs. ${tax}`;
+            totalEl.innerText = `Rs. ${total}`;
+        }
+
+        function updateQty(index, change) {
+            appData.cart[index].qty += change;
+            if(appData.cart[index].qty <= 0) appData.cart.splice(index, 1);
+            renderCart();
+        }
+
+        function checkout() {
+            if(appData.cart.length === 0) { alert("Cart is empty!"); return; }
+            let subtotal = appData.cart.reduce((a,c)=>a+(c.price*c.qty), 0);
+            let tax = Math.round(subtotal * 0.05);
+            let total = subtotal + tax;
+
+            const invoice = {
+                id: Date.now().toString().slice(-6),
+                table: appData.table,
+                date: new Date().toLocaleString(),
+                items: [...appData.cart],
+                total: total
+            };
+
+            appData.invoices.unshift(invoice);
+            appData.totalSales += total;
+            appData.cart = [];
+            saveData();
+            renderCart();
+            alert(`Order completed successfully! Bill #${invoice.id} generated for Table ${invoice.table}. Total: Rs. ${total}`);
+            switchTab('dashboard');
+        }
+
+        // Menu Management Functions
+        function renderMenuManagement() {
+            const grid = document.getElementById('menu-management-grid');
+            grid.innerHTML = '';
+            appData.menu.forEach((item, idx) => {
+                grid.innerHTML += `
+                    <div class="bg-slate-800 border border-slate-700 p-4 rounded-2xl flex justify-between items-center">
+                        <div>
+                            <span class="text-2xl">${item.emoji || '🍽️'}</span>
+                            <h4 class="font-bold text-white text-sm mt-1">${item.name}</h4>
+                            <p class="text-xs text-orange-400">Rs. ${item.price} (${item.category})</p>
+                        </div>
+                        <button onclick="deleteDish(${idx})" class="bg-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white p-2 rounded-xl text-xs font-bold transition">Delete</button>
+                    </div>
+                `;
+            });
+        }
+
+        function openAddMenuModal() { document.getElementById('modal-add-menu').classList.remove('hidden'); }
+        function closeAddMenuModal() { document.getElementById('modal-add-menu').classList.add('hidden'); }
+
+        function saveNewDish() {
+            const name = document.getElementById('new-dish-name').value;
+            const category = document.getElementById('new-dish-category').value;
+            const price = Number(document.getElementById('new-dish-price').value);
+
+            if(!name || !price) { alert("Please enter dish name and price"); return; }
+
+            appData.menu.push({ id: Date.now(), name, category, price, emoji: '🍲' });
+            saveData();
+            closeAddMenuModal();
+            renderMenuManagement();
+            alert("New dish added successfully!");
+        }
+
+        function deleteDish(idx) {
+            appData.menu.splice(idx, 1);
+            saveData();
+            renderMenuManagement();
+        }
+
+        // Invoices View
+        function renderInvoices() {
+            const container = document.getElementById('invoices-list');
+            if(appData.invoices.length === 0) {
+                container.innerHTML = `<p class="text-slate-500 text-center py-12 text-sm">No invoices generated yet.</p>`;
+                return;
+            }
+            container.innerHTML = '';
+            appData.invoices.forEach(inv => {
+                container.innerHTML += `
+                    <div class="bg-slate-800 border border-slate-700 p-4 rounded-2xl flex justify-between items-center text-xs">
+                        <div>
+                            <p class="font-bold text-white text-sm">Bill #${inv.id} — Table: ${inv.table}</p>
+                            <p class="text-slate-400">${inv.date} | ${inv.items.length} items</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-extrabold text-orange-400 text-sm">Rs. ${inv.total}</p>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function updateDashboardStats() {
+            document.getElementById('stat-total-sales').innerText = `Rs. ${appData.totalSales.toLocaleString()}`;
+            document.getElementById('stat-total-orders').innerText = appData.invoices.length;
+        }
+
+        // Clock
+        setInterval(() => {
+            document.getElementById('current-time').innerText = new Date().toLocaleTimeString();
+        }, 1000);
+
+        initApp();
+    </script>
+</body>
+</html>
