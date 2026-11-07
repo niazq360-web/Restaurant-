@@ -168,3 +168,256 @@
     </script>
 </body>
 </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant POS & Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#f97316">
+</head>
+<body class="bg-gray-100 font-sans antialiased pb-12">
+
+    <!-- App Header with Restaurant Profile -->
+    <header class="bg-orange-600 text-white shadow-md p-4 flex justify-between items-center">
+        <div>
+            <h1 id="res-name" class="text-xl font-bold">🍽️ Royal Restaurant POS</h1>
+            <p id="res-tagline" class="text-xs text-orange-100">Best Food in Town | Table: <span id="selected-table">1</span></p>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="openSettings()" class="bg-orange-700 text-xs px-3 py-1.5 rounded-lg font-medium shadow hover:bg-orange-800">⚙️ Profile</button>
+            <span id="current-time" class="text-xs bg-orange-700 px-3 py-1.5 rounded-lg flex items-center"></span>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto p-4 grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- Menu Section (2 Columns) -->
+        <div class="md:col-span-2 space-y-4">
+            <!-- Table Selection & Search -->
+            <div class="flex flex-wrap justify-between items-center gap-2 bg-white p-3 rounded-xl shadow-sm">
+                <div class="flex items-center gap-2">
+                    <label class="text-xs font-semibold text-gray-600">Table:</label>
+                    <select id="table-select" onchange="updateTable(this.value)" class="border rounded-lg px-2 py-1 text-sm bg-gray-50">
+                        <option value="1">Table 1</option>
+                        <option value="2">Table 2</option>
+                        <option value="3">Table 3</option>
+                        <option value="VIP">VIP Table</option>
+                        <option value="Takeaway">Takeaway</option>
+                    </select>
+                </div>
+                <button onclick="openAddModal()" class="bg-green-600 text-white text-xs px-3 py-2 rounded-lg font-bold shadow hover:bg-green-700">+ Add New Dish</button>
+            </div>
+
+            <h2 class="text-lg font-semibold text-gray-800">Menu Categories</h2>
+            <!-- Category Filter Tabs -->
+            <div class="flex gap-2 overflow-x-auto pb-2">
+                <button onclick="filterMenu('all')" class="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium shadow">All</button>
+                <button onclick="filterMenu('fastfood')" class="px-4 py-2 bg-white text-gray-700 rounded-lg text-sm font-medium shadow hover:bg-gray-50">Fast Food</button>
+                <button onclick="filterMenu('desi')" class="px-4 py-2 bg-white text-gray-700 rounded-lg text-sm font-medium shadow hover:bg-gray-50">Desi Items</button>
+                <button onclick="filterMenu('drinks')" class="px-4 py-2 bg-white text-gray-700 rounded-lg text-sm font-medium shadow hover:bg-gray-50">Drinks</button>
+            </div>
+
+            <!-- Menu Grid -->
+            <div id="menu-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <!-- Items injected via JS -->
+            </div>
+        </div>
+
+        <!-- Billing / Cart Section (1 Column) -->
+        <div class="bg-white p-4 rounded-xl shadow-md flex flex-col justify-between h-[75vh]">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-800 border-b pb-2 mb-3">Current Order</h2>
+                <div id="cart-items" class="space-y-3 overflow-y-auto max-h-[45vh] pr-1">
+                    <p class="text-gray-400 text-center py-8 text-sm">Cart is empty</p>
+                </div>
+            </div>
+
+            <!-- Cart Summary & Checkout -->
+            <div class="border-t pt-4 space-y-3">
+                <div class="flex justify-between text-sm text-gray-600">
+                    <span>Tax (5%):</span>
+                    <span id="cart-tax">Rs. 0</span>
+                </div>
+                <div class="flex justify-between text-base font-bold text-gray-800">
+                    <span>Total Amount:</span>
+                    <span id="cart-total" class="text-orange-600">Rs. 0</span>
+                </div>
+                <button onclick="checkoutOrder()" class="w-full bg-orange-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-orange-700 transition">
+                    Print Bill & Checkout
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal: Add New Dish -->
+    <div id="add-modal" class="fixed inset-0 bg-black/50 hidden flex justify-center items-center p-4">
+        <div class="bg-white p-6 rounded-xl w-full max-w-sm space-y-4">
+            <h3 class="font-bold text-gray-800 text-lg">Add New Dish to Menu</h3>
+            <input type="text" id="new-name" placeholder="Dish Name (e.g. Pizza)" class="w-full border p-2 rounded-lg text-sm">
+            <select id="new-category" class="w-full border p-2 rounded-lg text-sm">
+                <option value="fastfood">Fast Food</option>
+                <option value="desi">Desi Items</option>
+                <option value="drinks">Drinks</option>
+            </select>
+            <input type="number" id="new-price" placeholder="Price in Rs." class="w-full border p-2 rounded-lg text-sm">
+            <div class="flex gap-2 pt-2">
+                <button onclick="closeAddModal()" class="w-1/2 bg-gray-300 py-2 rounded-lg text-sm font-medium">Cancel</button>
+                <button onclick="addNewItem()" class="w-1/2 bg-orange-600 text-white py-2 rounded-lg text-sm font-bold">Add Item</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Restaurant Profile Settings -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/50 hidden flex justify-center items-center p-4">
+        <div class="bg-white p-6 rounded-xl w-full max-w-sm space-y-4">
+            <h3 class="font-bold text-gray-800 text-lg">Restaurant Profile</h3>
+            <input type="text" id="setting-name" placeholder="Restaurant Name" class="w-full border p-2 rounded-lg text-sm">
+            <input type="text" id="setting-tagline" placeholder="Tagline / Location" class="w-full border p-2 rounded-lg text-sm">
+            <div class="flex gap-2 pt-2">
+                <button onclick="closeSettings()" class="w-1/2 bg-gray-300 py-2 rounded-lg text-sm font-medium">Cancel</button>
+                <button onclick="saveSettings()" class="w-1/2 bg-orange-600 text-white py-2 rounded-lg text-sm font-bold">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        let restaurantName = "Royal Restaurant POS";
+        let restaurantTagline = "Best Food in Town";
+        let currentTable = "1";
+
+        let menuItems = [
+            { id: 1, name: 'Zinger Burger', category: 'fastfood', price: 450, emoji: '🍔' },
+            { id: 2, name: 'Chicken Biryani', category: 'desi', price: 350, emoji: '🍛' },
+            { id: 3, name: 'Club Sandwich', category: 'fastfood', price: 300, emoji: '🥪' },
+            { id: 4, name: 'Cold Drink', category: 'drinks', price: 120, emoji: '🥤' },
+            { id: 5, name: 'Chicken Karahi', category: 'desi', price: 1100, emoji: '🍲' },
+            { id: 6, name: 'Mineral Water', category: 'drinks', price: 80, emoji: '💧' }
+        ];
+
+        let cart = [];
+
+        function renderMenu(category = 'all') {
+            const grid = document.getElementById('menu-grid');
+            grid.innerHTML = '';
+            const filtered = category === 'all' ? menuItems : menuItems.filter(i => i.category === category);
+            
+            filtered.forEach(item => {
+                grid.innerHTML += `
+                    <div onclick="addToCart(${item.id})" class="bg-white p-4 rounded-xl shadow cursor-pointer hover:shadow-md transition border border-gray-100 flex flex-col items-center text-center">
+                        <span class="text-3xl mb-1">🍽️</span>
+                        <h3 class="font-semibold text-gray-800 text-xs sm:text-sm">${item.name}</h3>
+                        <p class="text-orange-600 font-bold text-xs mt-1">Rs. ${item.price}</p>
+                    </div>
+                `;
+            });
+        }
+
+        function filterMenu(category) { renderMenu(category); }
+
+        function addToCart(id) {
+            const item = menuItems.find(i => i.id === id);
+            const existing = cart.find(c => c.id === id);
+            if (existing) { existing.qty++; } else { cart.push({ ...item, qty: 1 }); }
+            renderCart();
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cart-items');
+            const totalEl = document.getElementById('cart-total');
+            const taxEl = document.getElementById('cart-tax');
+            
+            if (cart.length === 0) {
+                container.innerHTML = `<p class="text-gray-400 text-center py-8 text-sm">Cart is empty</p>`;
+                totalEl.innerText = 'Rs. 0';
+                taxEl.innerText = 'Rs. 0';
+                return;
+            }
+
+            container.innerHTML = '';
+            let subtotal = 0;
+
+            cart.forEach((item, index) => {
+                subtotal += item.price * item.qty;
+                container.innerHTML += `
+                    <div class="flex justify-between items-center bg-gray-50 p-2 rounded-lg border text-sm">
+                        <div>
+                            <p class="font-medium text-gray-800">${item.name}</p>
+                            <p class="text-xs text-gray-500">Rs. ${item.price} x ${item.qty}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="changeQty(${index}, 1)" class="bg-gray-200 px-2 rounded font-bold">+</button>
+                            <span class="font-semibold">${item.qty}</span>
+                            <button onclick="changeQty(${index}, -1)" class="bg-gray-200 px-2 rounded font-bold">-</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            let tax = Math.round(subtotal * 0.05);
+            let total = subtotal + tax;
+            taxEl.innerText = `Rs. ${tax}`;
+            totalEl.innerText = `Rs. ${total}`;
+        }
+
+        function changeQty(index, change) {
+            cart[index].qty += change;
+            if (cart[index].qty <= 0) { cart.splice(index, 1); }
+            renderCart();
+        }
+
+        function updateTable(table) {
+            currentTable = table;
+            document.getElementById('selected-table').innerText = table;
+        }
+
+        function openAddModal() { document.getElementById('add-modal').classList.remove('hidden'); }
+        function closeAddModal() { document.getElementById('add-modal').classList.add('hidden'); }
+        
+        function addNewItem() {
+            const name = document.getElementById('new-name').value;
+            const category = document.getElementById('new-category').value;
+            const price = Number(document.getElementById('new-price').value);
+
+            if (!name || !price) { alert('Please fill all fields'); return; }
+
+            menuItems.push({ id: menuItems.length + 1, name, category, price, emoji: '🥘' });
+            closeAddModal();
+            renderMenu();
+            alert('New dish added successfully!');
+        }
+
+        function openSettings() {
+            document.getElementById('setting-name').value = restaurantName;
+            document.getElementById('setting-tagline').value = restaurantTagline;
+            document.getElementById('settings-modal').classList.remove('hidden');
+        }
+        function closeSettings() { document.getElementById('settings-modal').classList.add('hidden'); }
+
+        function saveSettings() {
+            restaurantName = document.getElementById('setting-name').value || restaurantName;
+            restaurantTagline = document.getElementById('setting-tagline').value || restaurantTagline;
+            document.getElementById('res-name').innerText = `🍽️ ${restaurantName}`;
+            document.getElementById('res-tagline').innerHTML = `${restaurantTagline} | Table: <span id="selected-table">${currentTable}</span>`;
+            closeSettings();
+        }
+
+        function checkoutOrder() {
+            if (cart.length === 0) { alert('Cart is empty!'); return; }
+            alert(`Order placed successfully for Table ${currentTable}! Bill generated.`);
+            cart = [];
+            renderCart();
+        }
+
+        setInterval(() => {
+            document.getElementById('current-time').innerText = new Date().toLocaleTimeString();
+        }, 1000);
+
+        renderMenu();
+    </script>
+</body>
+</html>
