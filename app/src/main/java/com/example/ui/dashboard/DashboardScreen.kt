@@ -16,9 +16,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.HourglassBottom
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
@@ -29,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -36,7 +40,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.data.SettingsManager
+import com.example.data.auth.UserProfile
 import com.example.ui.pos.PosViewModel
+import com.example.ui.theme.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -60,6 +66,8 @@ fun copyUriToInternalStorage(context: Context, uri: Uri, fileName: String): Stri
 @Composable
 fun DashboardScreen(
     viewModel: PosViewModel, 
+    userProfile: UserProfile? = null,
+    onLogout: () -> Unit = {},
     onNavigateToPos: () -> Unit = {}, 
     onNavigateToDelivery: () -> Unit = {},
     onNavigateToInvoices: () -> Unit = {},
@@ -84,6 +92,9 @@ fun DashboardScreen(
 
     var showUserAccountDialog by remember { mutableStateOf(false) }
     var showAnnualRolloverDialog by remember { mutableStateOf(false) }
+    var showRoleDeniedDialog by remember { mutableStateOf<String?>(null) }
+    var showLogoutConfirmDialog by remember { mutableStateOf(false) }
+    var showFirebaseProfileDialog by remember { mutableStateOf(false) }
 
     val orders by viewModel.orders.collectAsStateWithLifecycle()
     val tables by viewModel.tables.collectAsStateWithLifecycle()
@@ -125,7 +136,13 @@ fun DashboardScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
                     .weight(1f)
-                    .clickable { onNavigateToProfile() }
+                    .clickable { 
+                        if (userProfile != null && !userProfile.isAdmin()) {
+                            showRoleDeniedDialog = "Restaurant Profile & System Configuration require Administrator privileges. You are currently logged in as ${userProfile.getDisplayRole()}."
+                        } else {
+                            onNavigateToProfile()
+                        }
+                    }
             ) {
                 // Restaurant Logo / Avatar
                 Box(
@@ -166,20 +183,61 @@ fun DashboardScreen(
                 }
             }
 
-            // User Profile badge (Offline user)
-            AssistChip(
-                onClick = { showUserAccountDialog = true },
-                label = {
-                    Text(
-                        if (userName.isNotBlank()) userName else "Offline User",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
+            // Firebase User Profile & Logout
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                AssistChip(
+                    onClick = { showFirebaseProfileDialog = true },
+                    label = {
+                        Column {
+                            Text(
+                                text = userProfile?.fullName?.ifBlank { userName.ifBlank { "Staff" } } ?: userName.ifBlank { "Staff" },
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = BrandPrimary,
+                                maxLines = 1
+                            )
+                            Text(
+                                text = userProfile?.getDisplayRole() ?: userRole.ifBlank { "Cashier" },
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = BrandSecondary
+                            )
+                        }
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Person, 
+                            contentDescription = "User Profile", 
+                            tint = BrandSecondary, 
+                            modifier = Modifier.size(16.dp)
+                        )
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    colors = AssistChipDefaults.assistChipColors(containerColor = CleanSurface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CleanOutline),
+                    modifier = Modifier.testTag("dashboard_user_profile_chip")
+                )
+
+                IconButton(
+                    onClick = { showLogoutConfirmDialog = true },
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(CleanSurface)
+                        .border(1.dp, CleanOutline, RoundedCornerShape(10.dp))
+                        .testTag("dashboard_logout_icon_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Logout,
+                        contentDescription = "Sign Out",
+                        tint = ErrorRed,
+                        modifier = Modifier.size(18.dp)
                     )
-                },
-                leadingIcon = {
-                    Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
-            )
+            }
         }
 
         // 12-Month Financial Year & Rollover Banner (Annual Cycle Feature)
@@ -205,7 +263,13 @@ fun DashboardScreen(
                         }
                     }
                     Button(
-                        onClick = { showAnnualRolloverDialog = true },
+                        onClick = { 
+                            if (userProfile != null && !userProfile.isAdmin()) {
+                                showRoleDeniedDialog = "12-Month Financial Ledger Rollover requires Administrator privileges. You are currently logged in as ${userProfile.getDisplayRole()}."
+                            } else {
+                                showAnnualRolloverDialog = true 
+                            }
+                        },
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                         shape = RoundedCornerShape(8.dp)
@@ -349,7 +413,13 @@ fun DashboardScreen(
                 BentoCard(
                     backgroundColor = MaterialTheme.colorScheme.surface,
                     borderColor = MaterialTheme.colorScheme.outlineVariant,
-                    modifier = Modifier.weight(1f).clickable { onNavigateToWorkers() }
+                    modifier = Modifier.weight(1f).clickable { 
+                        if (userProfile != null && userProfile.isCashier() && !userProfile.isManager()) {
+                            showRoleDeniedDialog = "Staff & Employee Attendance records require Manager or Administrator privileges. You are currently logged in as Cashier."
+                        } else {
+                            onNavigateToWorkers()
+                        }
+                    }
                 ) {
                     Row(
                         modifier = Modifier.padding(12.dp).fillMaxWidth(),
@@ -558,6 +628,191 @@ fun DashboardScreen(
             dismissButton = {
                 TextButton(onClick = { showUserAccountDialog = false }) { Text("Cancel") }
             }
+        )
+    }
+
+    // Role-Based Access Denied Dialog
+    if (showRoleDeniedDialog != null) {
+        AlertDialog(
+            onDismissRequest = { showRoleDeniedDialog = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.Lock,
+                    contentDescription = null,
+                    tint = ErrorRed,
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Access Restricted",
+                    fontWeight = FontWeight.Bold,
+                    color = BrandPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = showRoleDeniedDialog ?: "",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showRoleDeniedDialog = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Understood")
+                }
+            },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = CleanSurface
+        )
+    }
+
+    // Logout Confirmation Dialog
+    if (showLogoutConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutConfirmDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Logout,
+                    contentDescription = null,
+                    tint = ErrorRed,
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Sign Out of Firebase?",
+                    fontWeight = FontWeight.Bold,
+                    color = BrandPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = "You will be signed out of this session. You will need your Firebase email & password to sign back in.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLogoutConfirmDialog = false
+                        onLogout()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ErrorRed),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.testTag("confirm_logout_button")
+                ) {
+                    Text("Sign Out", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showLogoutConfirmDialog = false }
+                ) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = CleanSurface
+        )
+    }
+
+    // Firebase User Profile Detail Dialog
+    if (showFirebaseProfileDialog && userProfile != null) {
+        AlertDialog(
+            onDismissRequest = { showFirebaseProfileDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Filled.Security,
+                    contentDescription = null,
+                    tint = BrandSecondary,
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Authenticated Staff Profile",
+                    fontWeight = FontWeight.Bold,
+                    color = BrandPrimary
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = CleanSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("FULL NAME", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextMuted)
+                            Text(userProfile.fullName.ifBlank { "Staff" }, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = BrandPrimary)
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("EMAIL ADDRESS", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextMuted)
+                            Text(userProfile.email.ifBlank { "N/A" }, fontSize = 13.sp, color = TextPrimary)
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("ASSIGNED ROLE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextMuted)
+                            Row(
+                                modifier = Modifier.padding(top = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (userProfile.isAdmin()) BrandSecondaryContainer else CleanOutlineVariant
+                                ) {
+                                    Text(
+                                        text = userProfile.getDisplayRole().uppercase(),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (userProfile.isAdmin()) BrandOnSecondaryContainer else TextPrimary,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("FIREBASE UID", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextMuted)
+                            Text(userProfile.uid, fontSize = 11.sp, color = TextSecondary, maxLines = 1)
+                        }
+                    }
+
+                    Text(
+                        text = "🔒 Security Note: Roles are securely managed via Firebase Firestore and evaluated against Firebase Security Rules.",
+                        fontSize = 11.sp,
+                        color = TextSecondary
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showFirebaseProfileDialog = false
+                        showLogoutConfirmDialog = true
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ErrorRed),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Sign Out", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showFirebaseProfileDialog = false }) {
+                    Text("Close", color = TextSecondary)
+                }
+            },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = CleanSurface
         )
     }
 }

@@ -18,6 +18,8 @@ sealed class Screen(val route: String, val title: String = "", val icon: ImageVe
     object Delivery : Screen("delivery", "Delivery")
     object Invoices : Screen("invoices", "Invoices")
     object SalesSummary : Screen("sales_summary", "Analytics")
+    object Login : Screen("login", "Login")
+    object Register : Screen("register", "Register")
 }
 
 val bottomNavItems = listOf(

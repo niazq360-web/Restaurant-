@@ -78,7 +78,7 @@ class SettingsManager(context: Context) {
         }
     }
 
-    // User Account (100% Offline)
+    // User Account (100% Offline & Session Sync)
     fun getUserPhone(): String = prefs.getString("user_phone", "") ?: ""
     fun getUserName(): String = prefs.getString("user_name", "") ?: ""
     fun getUserRole(): String = prefs.getString("user_role", "Manager") ?: "Manager"
@@ -97,5 +97,74 @@ class SettingsManager(context: Context) {
         prefs.edit {
             putBoolean("user_logged_in", false)
         }
+    }
+
+    // Authenticated Cloud/Email Session Persistence
+    fun getAuthEmail(): String = prefs.getString("auth_email", "") ?: ""
+    fun getAuthUid(): String = prefs.getString("auth_uid", "") ?: ""
+    fun getAuthName(): String = prefs.getString("auth_name", "") ?: ""
+    fun getAuthRole(): String = prefs.getString("auth_role", "") ?: ""
+    fun isAuthLoggedIn(): Boolean = prefs.getBoolean("auth_logged_in", false)
+
+    fun saveAuthSession(
+        uid: String,
+        email: String,
+        name: String,
+        role: String,
+        password: String = ""
+    ) {
+        prefs.edit {
+            putString("auth_uid", uid)
+            putString("auth_email", email)
+            putString("auth_name", name)
+            putString("auth_role", role)
+            putBoolean("auth_logged_in", true)
+            if (password.isNotBlank()) {
+                val key = "pwd_" + email.lowercase().trim()
+                putString(key, password)
+            }
+        }
+    }
+
+    fun verifyLocalPassword(email: String, enteredPass: String): Boolean {
+        val key = "pwd_" + email.lowercase().trim()
+        val saved = prefs.getString(key, null) ?: return true // If not saved locally, don't block
+        return saved == enteredPass
+    }
+
+    fun clearAuthSession() {
+        prefs.edit {
+            putBoolean("auth_logged_in", false)
+            putString("auth_uid", "")
+            putString("auth_email", "")
+            putString("auth_name", "")
+            putString("auth_role", "")
+        }
+    }
+
+    // Manager / Owner Notification Settings
+    fun getManagerPhone(): String {
+        val managerPhone = prefs.getString("manager_phone", "") ?: ""
+        return if (managerPhone.isNotBlank()) managerPhone else getOwnerPhone()
+    }
+
+    fun setManagerPhone(phone: String) {
+        prefs.edit { putString("manager_phone", phone) }
+    }
+
+    fun isAutoSmsOnPayment(): Boolean = prefs.getBoolean("auto_sms_on_payment", true)
+    fun setAutoSmsOnPayment(enabled: Boolean) {
+        prefs.edit { putBoolean("auto_sms_on_payment", enabled) }
+    }
+
+    fun isAutoSmsOnDelivery(): Boolean = prefs.getBoolean("auto_sms_on_delivery", true)
+    fun setAutoSmsOnDelivery(enabled: Boolean) {
+        prefs.edit { putBoolean("auto_sms_on_delivery", enabled) }
+    }
+
+    // User / App Profile Photo
+    fun getUserPhotoPath(): String = prefs.getString("user_photo_path", "") ?: ""
+    fun saveUserPhotoPath(path: String) {
+        prefs.edit { putString("user_photo_path", path) }
     }
 }

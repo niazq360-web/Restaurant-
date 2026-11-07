@@ -17,13 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Fastfood
-import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -220,13 +214,99 @@ fun PosScreen(viewModel: PosViewModel) {
         )
     }
 
+    var paymentSuccessData by remember { mutableStateOf<PaymentSuccessInfo?>(null) }
+
     if (showCheckoutDialog) {
+        val cartTotal = cart.sumOf { it.product.price * it.quantity }
         CheckoutDialog(
-            total = cart.sumOf { it.product.price * it.quantity },
+            total = cartTotal,
             onDismiss = { showCheckoutDialog = false },
             onConfirm = { customer, phone, address, type, table, payment, isPaid, discount ->
+                val payableTotal = (cartTotal - discount).coerceAtLeast(0.0)
                 viewModel.checkout(customer, phone, address, type, table, payment, isPaid, discount)
                 showCheckoutDialog = false
+
+                val settings = SettingsManager(context)
+                val managerPhone = settings.getManagerPhone()
+                val isAutoSms = settings.isAutoSmsOnPayment()
+                val timeStr = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault()).format(java.util.Date())
+                val paymentMsg = "✅ *[${settings.getRestaurantName()}] Payment Received*\n" +
+                        "Amount: Rs. ${"%.0f".format(payableTotal)} ($payment)\n" +
+                        "Customer: $customer ${if (phone.isNotBlank()) "($phone)" else ""}\n" +
+                        "Order Type: $type ${if (table.isNotBlank()) "• Table $table" else ""}\n" +
+                        "Time: $timeStr"
+
+                if (isAutoSms && managerPhone.isNotBlank()) {
+                    com.example.utils.NotificationHelper.sendAutoSms(context, managerPhone, paymentMsg)
+                }
+
+                paymentSuccessData = PaymentSuccessInfo(
+                    customerName = customer,
+                    customerPhone = phone,
+                    amount = payableTotal,
+                    paymentMethod = payment,
+                    orderType = type,
+                    message = paymentMsg
+                )
+            }
+        )
+    }
+
+    if (paymentSuccessData != null) {
+        val info = paymentSuccessData!!
+        val settings = remember { SettingsManager(context) }
+        val managerPhone = settings.getManagerPhone()
+
+        AlertDialog(
+            onDismissRequest = { paymentSuccessData = null },
+            icon = {
+                Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = Color(0xFF16A34A),
+                    modifier = Modifier.size(44.dp)
+                )
+            },
+            title = {
+                Text("Payment Recorded Successfully!", fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Received Rs. ${"%.2f".format(info.amount)} via ${info.paymentMethod}",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 15.sp
+                    )
+                    Text("Customer: ${info.customerName} (${info.orderType})", fontSize = 13.sp)
+                    if (managerPhone.isNotBlank()) {
+                        Text(
+                            "✓ Manager auto-SMS dispatched to $managerPhone",
+                            fontSize = 12.sp,
+                            color = Color(0xFF16A34A),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val targetPhone = if (managerPhone.isNotBlank()) managerPhone else info.customerPhone
+                        com.example.utils.NotificationHelper.sendWhatsAppMessage(context, targetPhone, info.message)
+                        paymentSuccessData = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366))
+                ) {
+                    Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Share on WhatsApp", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { paymentSuccessData = null }) {
+                    Text("Done")
+                }
             }
         )
     }
@@ -717,3 +797,12 @@ fun CheckoutDialog(
         }
     )
 }
+
+data class PaymentSuccessInfo(
+    val customerName: String,
+    val customerPhone: String,
+    val amount: Double,
+    val paymentMethod: String,
+    val orderType: String,
+    val message: String
+)

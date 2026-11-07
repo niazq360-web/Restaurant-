@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function getUserRole() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? getUserData().role
+        : 'cashier';
+    }
+    
+    function isAdmin() {
+      return getUserRole() == 'admin';
+    }
+    
+    function isManager() {
+      return getUserRole() == 'manager' || isAdmin();
+    }
+    
+    function isCashier() {
+      return getUserRole() == 'cashier';
+    }
+
+    // 1. User Profiles & Role Management
+    match /users/{userId} {
+      // Authenticated users can view staff profiles
+      allow read: if isAuthenticated();
+      
+      // New users can self-register their profile, enforcing default role 'cashier'
+      allow create: if isOwner(userId) && request.resource.data.role == 'cashier';
+      
+      // Self update allows non-role edits; only admins can elevate or modify user roles
+      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
+      
+      // Only admins can delete staff accounts
+      allow delete: if isAdmin();
+    }
+
+    // 2. Orders & Transactions
+    match /orders/{orderId} {
+      allow read: if isAuthenticated();
+      // Cashiers, managers, and admins can record new orders/transactions
+      allow create: if isAuthenticated();
+      // Only managers and admins can edit or void completed orders
+      allow update, delete: if isManager();
+    }
+
+    // 3. Products & Menu Catalog
+    match /products/{productId} {
+      allow read: if isAuthenticated();
+      // Managers and admins manage inventory and pricing
+      allow write: if isManager();
+    }
+
+    // 4. Restaurant Tables
+    match /tables/{tableId} {
+      allow read: if isAuthenticated();
+      // Cashiers can update table occupancy status
+      allow update: if isAuthenticated();
+      // Only managers can add or remove tables
+      allow create, delete: if isManager();
+    }
+
+    // 5. Staff Workers & Attendance
+    match /workers/{workerId} {
+      // Only managers and admins can read and manage worker payroll/records
+      allow read, write: if isManager();
+    }
+
+    match /worker_attendance/{attendanceId} {
+      allow read, write: if isManager();
+    }
+
+    // Default catch-all rule: Deny all unauthenticated or unmatched paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

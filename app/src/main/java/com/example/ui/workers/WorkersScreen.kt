@@ -54,6 +54,7 @@ fun WorkersScreen(viewModel: PosViewModel, onBack: () -> Unit) {
 
     var showAddWorkerDialog by remember { mutableStateOf(false) }
     var workerToEdit by remember { mutableStateOf<Worker?>(null) }
+    var selectedWorkerForIdCard by remember { mutableStateOf<Worker?>(null) }
 
     val statusFilters = listOf("All", "Active", "On Leave", "Left", "Terminated")
 
@@ -71,6 +72,7 @@ fun WorkersScreen(viewModel: PosViewModel, onBack: () -> Unit) {
                 worker.name.contains(searchQuery, ignoreCase = true) ||
                 worker.phone.contains(searchQuery) ||
                 worker.role.contains(searchQuery, ignoreCase = true) ||
+                worker.designation.contains(searchQuery, ignoreCase = true) ||
                 worker.assignedTable.contains(searchQuery, ignoreCase = true)
             matchesStatus && matchesSearch
         }
@@ -183,7 +185,8 @@ fun WorkersScreen(viewModel: PosViewModel, onBack: () -> Unit) {
                                     onDelete = { viewModel.deleteWorker(worker) },
                                     onStatusChange = { newStatus ->
                                         viewModel.updateWorker(worker.copy(status = newStatus))
-                                    }
+                                    },
+                                    onViewIdCard = { selectedWorkerForIdCard = worker }
                                 )
                             }
                         }
@@ -220,6 +223,13 @@ fun WorkersScreen(viewModel: PosViewModel, onBack: () -> Unit) {
             }
         )
     }
+
+    if (selectedWorkerForIdCard != null) {
+        EmployeeIdCardDialog(
+            worker = selectedWorkerForIdCard!!,
+            onDismiss = { selectedWorkerForIdCard = null }
+        )
+    }
 }
 
 @Composable
@@ -227,7 +237,8 @@ fun WorkerCard(
     worker: Worker,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onStatusChange: (String) -> Unit
+    onStatusChange: (String) -> Unit,
+    onViewIdCard: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -260,7 +271,7 @@ fun WorkerCard(
                     .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                if (!worker.imagePath.isNullOrBlank()) {
+                if (!worker.imagePath.isNullOrBlank() && File(worker.imagePath).exists()) {
                     AsyncImage(
                         model = File(worker.imagePath),
                         contentDescription = worker.name,
@@ -301,7 +312,13 @@ fun WorkerCard(
                 }
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    "Role: ${worker.role}  •  Table: ${worker.assignedTable.ifBlank { "None" }}",
+                    text = "Designation: ${worker.designation.ifBlank { worker.role }}",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    "Role: ${worker.role}  •  Table: ${worker.assignedTable.ifBlank { "Counter/General" }}",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -320,6 +337,19 @@ fun WorkerCard(
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                // Quick ID Card Button
+                OutlinedButton(
+                    onClick = onViewIdCard,
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                    modifier = Modifier.height(30.dp)
+                ) {
+                    Icon(Icons.Default.Badge, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("ID Card", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
             }
 
             // Actions dropdown
@@ -328,6 +358,11 @@ fun WorkerCard(
                     Icon(Icons.Default.MoreVert, contentDescription = "Options")
                 }
                 DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Generate ID Card") },
+                        leadingIcon = { Icon(Icons.Default.Badge, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        onClick = { showMenu = false; onViewIdCard() }
+                    )
                     DropdownMenuItem(
                         text = { Text("Edit Details") },
                         leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
@@ -561,6 +596,7 @@ fun WorkerFormDialog(
 
     var name by remember { mutableStateOf(worker?.name ?: "") }
     var phone by remember { mutableStateOf(worker?.phone ?: "") }
+    var designation by remember { mutableStateOf(worker?.designation?.ifBlank { worker.role } ?: "Waiter") }
     var role by remember { mutableStateOf(worker?.role ?: "Waiter") }
     var assignedTable by remember { mutableStateOf(worker?.assignedTable ?: "") }
     var salary by remember { mutableStateOf(worker?.salary?.takeIf { it > 0 }?.toInt()?.toString() ?: "") }
@@ -628,6 +664,13 @@ fun WorkerFormDialog(
                 )
 
                 OutlinedTextField(
+                    value = designation,
+                    onValueChange = { designation = it },
+                    label = { Text("Designation (e.g. Head Chef, Delivery Boy, Cashier)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
                     value = phone,
                     onValueChange = { phone = it },
                     label = { Text("Phone Number (e.g. 03001234567)") },
@@ -638,14 +681,14 @@ fun WorkerFormDialog(
                 OutlinedTextField(
                     value = role,
                     onValueChange = { role = it },
-                    label = { Text("Role (Waiter, Chef, Cashier, etc.)") },
+                    label = { Text("General Category (Waiter, Chef, Rider, etc.)") },
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 OutlinedTextField(
                     value = assignedTable,
                     onValueChange = { assignedTable = it },
-                    label = { Text("Assigned Table(s) (e.g. T1, T2)") },
+                    label = { Text("Assigned Table(s) / Section (e.g. T1, T2, Counter)") },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -689,6 +732,7 @@ fun WorkerFormDialog(
                             name = name,
                             phone = phone,
                             role = role.ifBlank { "Staff" },
+                            designation = designation.ifBlank { role.ifBlank { "Staff" } },
                             assignedTable = assignedTable,
                             salary = salary.toDoubleOrNull() ?: 0.0,
                             status = status,

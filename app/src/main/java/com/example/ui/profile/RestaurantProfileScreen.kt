@@ -32,11 +32,17 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.data.SettingsManager
 import com.example.ui.dashboard.copyUriToInternalStorage
+import androidx.compose.material.icons.automirrored.filled.Logout
+import com.example.data.auth.UserProfile
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RestaurantProfileScreen(onBack: () -> Unit) {
+fun RestaurantProfileScreen(
+    userProfile: UserProfile? = null,
+    onLogout: () -> Unit = {},
+    onBack: () -> Unit
+) {
     BackHandler { onBack() }
     val context = LocalContext.current
     val settingsManager = remember { SettingsManager(context) }
@@ -46,12 +52,30 @@ fun RestaurantProfileScreen(onBack: () -> Unit) {
     var phone by remember { mutableStateOf(settingsManager.getRestaurantPhone()) }
     var ownerName by remember { mutableStateOf(settingsManager.getOwnerName()) }
     var ownerPhone by remember { mutableStateOf(settingsManager.getOwnerPhone()) }
+    var managerPhone by remember { mutableStateOf(settingsManager.getManagerPhone()) }
+    var autoSmsPayment by remember { mutableStateOf(settingsManager.isAutoSmsOnPayment()) }
+    var autoSmsDelivery by remember { mutableStateOf(settingsManager.isAutoSmsOnDelivery()) }
     var receiptFooter by remember { mutableStateOf(settingsManager.getReceiptFooter()) }
     
     var logoPath by remember { mutableStateOf(settingsManager.getLogoPath()) }
     var qrPath by remember { mutableStateOf(settingsManager.getQrCodePath()) }
+    var userPhotoPath by remember { mutableStateOf(settingsManager.getUserPhotoPath()) }
 
     var isSaved by remember { mutableStateOf(false) }
+
+    // User / Owner Photo Picker
+    val userPhotoPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            val saved = copyUriToInternalStorage(context, uri, "owner_profile_photo.jpg")
+            if (saved != null) {
+                settingsManager.saveUserPhotoPath(saved)
+                userPhotoPath = saved
+                Toast.makeText(context, "Profile Photo uploaded successfully!", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     // Logo Image Picker
     val logoPicker = rememberLauncherForActivityResult(
@@ -172,6 +196,45 @@ fun RestaurantProfileScreen(onBack: () -> Unit) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Owner & Business Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
 
+                    // Owner Photo Row
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer)
+                                .border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (userPhotoPath.isNotBlank() && File(userPhotoPath).exists()) {
+                                AsyncImage(
+                                    model = File(userPhotoPath),
+                                    contentDescription = "Owner Photo",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                            }
+                        }
+
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            OutlinedButton(
+                                onClick = { userPhotoPicker.launch("image/*") },
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(if (userPhotoPath.isNotBlank()) "Change Owner Photo" else "Upload Owner Photo", fontSize = 12.sp)
+                            }
+                            Text("Displays in app navigation & profile", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+
                     // Owner Fields
                     OutlinedTextField(
                         value = ownerName,
@@ -217,6 +280,66 @@ fun RestaurantProfileScreen(onBack: () -> Unit) {
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         modifier = Modifier.fillMaxWidth()
                     )
+                }
+            }
+
+            // Section: Manager & Notification Alerts (Auto-SMS & WhatsApp)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text("Manager Notification Alerts", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+                    Text(
+                        "Automatic SMS and WhatsApp notifications sent directly to the Manager or Owner.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    OutlinedTextField(
+                        value = managerPhone,
+                        onValueChange = { managerPhone = it },
+                        label = { Text("Manager / Alert Mobile Number") },
+                        placeholder = { Text("e.g. 03001234567") },
+                        leadingIcon = { Icon(Icons.Default.SupportAgent, contentDescription = null) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Auto-SMS on Payment Received", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text("Send SMS when cash or online payment is recorded.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = autoSmsPayment,
+                            onCheckedChange = { autoSmsPayment = it }
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Auto-SMS on Delivery Completed", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text("Send SMS when delivery boy verifies customer OTP.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = autoSmsDelivery,
+                            onCheckedChange = { autoSmsDelivery = it }
+                        )
+                    }
                 }
             }
 
@@ -302,8 +425,11 @@ fun RestaurantProfileScreen(onBack: () -> Unit) {
                             ownerPhone = ownerPhone,
                             receiptFooter = receiptFooter
                         )
+                        settingsManager.setManagerPhone(managerPhone)
+                        settingsManager.setAutoSmsOnPayment(autoSmsPayment)
+                        settingsManager.setAutoSmsOnDelivery(autoSmsDelivery)
                         isSaved = true
-                        Toast.makeText(context, "Restaurant Profile Saved Successfully!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Restaurant & Manager Profile Saved Successfully!", Toast.LENGTH_SHORT).show()
                     } else {
                         Toast.makeText(context, "Please fill in Restaurant Name and Address.", Toast.LENGTH_SHORT).show()
                     }
@@ -318,6 +444,59 @@ fun RestaurantProfileScreen(onBack: () -> Unit) {
                 Text("Save All Profile Details", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
             Spacer(modifier = Modifier.height(16.dp))
+
+            // Firebase Account Information Card
+            if (userProfile != null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Security,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.secondary
+                            )
+                            Text(
+                                text = "Firebase Authenticated Account",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        Text("Name: ${userProfile.fullName}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                        Text("Email: ${userProfile.email}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+                        Text("Role: ${userProfile.getDisplayRole()}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.secondary)
+
+                        OutlinedButton(
+                            onClick = onLogout,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF4444))
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Sign Out of Firebase Account", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

@@ -31,6 +31,7 @@ data class Order(
     val paymentStatus: String = "Pending", // Paid, Pending
     val riderNumber: String = "",
     val deliveryOtp: String = "",
+    val deliveryPriority: Int = 0, // 0 = default, 1 = stop 1, 2 = stop 2, etc.
     val timestamp: Long = System.currentTimeMillis()
 )
 
@@ -57,7 +58,8 @@ data class Worker(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val name: String,
     val phone: String = "",
-    val role: String = "Staff", // Waiter, Chef, Cashier, Manager, Cleaner, Helper
+    val role: String = "Staff", // Waiter, Chef, Cashier, Manager, Cleaner, Helper, Rider
+    val designation: String = role, // Specific designation e.g. "Head Chef", "Delivery Boy"
     val assignedTable: String = "",
     val salary: Double = 0.0,
     val joiningDate: String = "",

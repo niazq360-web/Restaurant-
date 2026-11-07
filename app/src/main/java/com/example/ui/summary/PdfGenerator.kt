@@ -1,26 +1,35 @@
 package com.example.ui.summary
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
+import android.net.Uri
+import android.os.Environment
+import android.widget.Toast
 import androidx.core.content.FileProvider
 import com.example.data.Order
 import com.example.data.OrderItem
 import com.example.data.SettingsManager
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 
 object PdfGenerator {
-    fun generateAndSharePdf(
+
+    /**
+     * Internal helper to create the PDF document file
+     */
+    fun createPdfFile(
         context: Context,
         reportType: String,
         orders: List<Order>,
         items: List<OrderItem>
-    ) {
+    ): File? {
         val settingsManager = SettingsManager(context)
         val restaurantName = settingsManager.getRestaurantName()
         val restaurantPhone = settingsManager.getRestaurantPhone()
@@ -56,7 +65,7 @@ object PdfGenerator {
         paint.textSize = 22f
         paint.isFakeBoldText = true
         canvas.drawText(restaurantName, textStartX, yPos + 10f, paint)
-        
+
         paint.textSize = 11f
         paint.isFakeBoldText = false
         paint.color = Color.rgb(100, 116, 139)
@@ -84,7 +93,7 @@ object PdfGenerator {
         paint.textSize = 11f
         paint.isFakeBoldText = false
         paint.color = Color.rgb(100, 116, 139)
-        canvas.drawText("Generated on: ${dateFormat.format(Date())}", 360f, yPos, paint)
+        canvas.drawText("Generated: ${dateFormat.format(Date())}", 360f, yPos, paint)
         yPos += 30f
 
         // Filter orders
@@ -98,76 +107,75 @@ object PdfGenerator {
         }
 
         val filteredOrders = orders.filter { it.status != "Cancelled" && it.timestamp >= filterTime }
-        val filteredOrderIds = filteredOrders.map { it.id }.toSet()
-        val filteredItems = items.filter { it.orderId in filteredOrderIds }
-
         val totalRevenue = filteredOrders.sumOf { it.totalAmount }
         val totalDiscount = filteredOrders.sumOf { it.discountAmount }
-        val totalProfit = filteredOrders.sumOf { it.profitAmount.takeIf { p -> p > 0 } ?: (it.totalAmount * 0.4) }
-        val totalCost = (totalRevenue - totalProfit).coerceAtLeast(0.0)
+        val totalProfit = filteredOrders.sumOf {
+            if (it.profitAmount > 0) it.profitAmount else (it.totalAmount * 0.4)
+        }
+        val cashTotal = filteredOrders.filter { it.paymentMethod == "Cash" }.sumOf { it.totalAmount }
+        val onlineTotal = filteredOrders.filter { it.paymentMethod != "Cash" }.sumOf { it.totalAmount }
 
-        // Summary Metric Boxes (Background Cards)
+        // Metrics Table Box
         paint.color = Color.rgb(248, 250, 252)
-        canvas.drawRoundRect(margin, yPos, rightMargin, yPos + 75f, 10f, 10f, paint)
+        canvas.drawRoundRect(margin, yPos, rightMargin, yPos + 85f, 10f, 10f, paint)
+
         paint.color = Color.rgb(226, 232, 240)
         paint.style = Paint.Style.STROKE
-        canvas.drawRoundRect(margin, yPos, rightMargin, yPos + 75f, 10f, 10f, paint)
+        paint.strokeWidth = 1f
+        canvas.drawRoundRect(margin, yPos, rightMargin, yPos + 85f, 10f, 10f, paint)
         paint.style = Paint.Style.FILL
 
-        // Metric 1: Revenue
-        paint.textSize = 10f
-        paint.color = Color.rgb(100, 116, 139)
-        canvas.drawText("TOTAL REVENUE", margin + 15f, yPos + 25f, paint)
-        paint.textSize = 16f
-        paint.isFakeBoldText = true
-        paint.color = Color.rgb(30, 41, 59)
-        canvas.drawText("Rs. ${"%.2f".format(totalRevenue)}", margin + 15f, yPos + 50f, paint)
+        // Row 1 metrics
+        paint.color = Color.rgb(71, 85, 105)
+        paint.textSize = 11f
+        canvas.drawText("Total Orders", margin + 15f, yPos + 25f, paint)
+        canvas.drawText("Total Revenue", margin + 140f, yPos + 25f, paint)
+        canvas.drawText("Net Profit", margin + 270f, yPos + 25f, paint)
+        canvas.drawText("Discount Given", margin + 380f, yPos + 25f, paint)
 
-        // Metric 2: Net Profit
-        paint.textSize = 10f
+        paint.color = Color.rgb(15, 23, 42)
+        paint.textSize = 14f
+        paint.isFakeBoldText = true
+        canvas.drawText("${filteredOrders.size}", margin + 15f, yPos + 45f, paint)
+        canvas.drawText("Rs. ${"%.0f".format(totalRevenue)}", margin + 140f, yPos + 45f, paint)
+
+        paint.color = Color.rgb(22, 163, 74) // Green
+        canvas.drawText("Rs. ${"%.0f".format(totalProfit)}", margin + 270f, yPos + 45f, paint)
+
+        paint.color = Color.rgb(220, 38, 38) // Red
+        canvas.drawText("Rs. ${"%.0f".format(totalDiscount)}", margin + 380f, yPos + 45f, paint)
+
+        // Payment Breakdown line
+        paint.color = Color.rgb(100, 116, 139)
+        paint.textSize = 11f
         paint.isFakeBoldText = false
-        paint.color = Color.rgb(100, 116, 139)
-        canvas.drawText("ESTIMATED PROFIT", margin + 140f, yPos + 25f, paint)
-        paint.textSize = 16f
+        canvas.drawText("Cash Collected: Rs. ${"%.0f".format(cashTotal)}    |    Online/QR Received: Rs. ${"%.0f".format(onlineTotal)}", margin + 15f, yPos + 72f, paint)
+
+        yPos += 115f
+
+        // Table Header: Category Sales Breakdown
+        paint.color = Color.rgb(15, 23, 42)
+        paint.textSize = 14f
         paint.isFakeBoldText = true
-        paint.color = Color.rgb(22, 163, 74)
-        canvas.drawText("Rs. ${"%.2f".format(totalProfit)}", margin + 140f, yPos + 50f, paint)
+        canvas.drawText("Category Sales Performance", margin, yPos, paint)
+        yPos += 20f
 
-        // Metric 3: Orders Count
-        paint.textSize = 10f
-        paint.isFakeBoldText = false
-        paint.color = Color.rgb(100, 116, 139)
-        canvas.drawText("TOTAL ORDERS", margin + 280f, yPos + 25f, paint)
-        paint.textSize = 16f
-        paint.isFakeBoldText = true
-        paint.color = Color.rgb(30, 41, 59)
-        canvas.drawText("${filteredOrders.size} Orders", margin + 280f, yPos + 50f, paint)
-
-        // Metric 4: Discount Given
-        paint.textSize = 10f
-        paint.isFakeBoldText = false
-        paint.color = Color.rgb(100, 116, 139)
-        canvas.drawText("TOTAL DISCOUNT", margin + 390f, yPos + 25f, paint)
-        paint.textSize = 16f
-        paint.isFakeBoldText = true
-        paint.color = Color.rgb(220, 38, 38)
-        canvas.drawText("Rs. ${"%.2f".format(totalDiscount)}", margin + 390f, yPos + 50f, paint)
-
-        yPos += 105f
-
-        // Table Header
         paint.color = Color.rgb(241, 245, 249)
-        canvas.drawRect(margin, yPos - 15f, rightMargin, yPos + 15f, paint)
-        paint.color = Color.rgb(30, 41, 59)
-        paint.textSize = 12f
-        paint.isFakeBoldText = true
-        canvas.drawText("Category / Item Type", margin + 10f, yPos + 5f, paint)
-        canvas.drawText("Quantity Sold", 320f, yPos + 5f, paint)
-        canvas.drawText("Total Sales (Rs)", 440f, yPos + 5f, paint)
-        yPos += 30f
+        canvas.drawRect(margin, yPos, rightMargin, yPos + 26f, paint)
 
-        val categorySales = filteredItems.groupBy { it.category.ifBlank { "Uncategorized" } }
-            .mapValues { entry -> 
+        paint.color = Color.rgb(71, 85, 105)
+        paint.textSize = 11f
+        paint.isFakeBoldText = true
+        canvas.drawText("Category", margin + 10f, yPos + 18f, paint)
+        canvas.drawText("Items Sold", 320f, yPos + 18f, paint)
+        canvas.drawText("Total Sales (Rs)", 440f, yPos + 18f, paint)
+        yPos += 36f
+
+        val validOrderIds = filteredOrders.map { it.id }.toSet()
+        val validItems = items.filter { it.orderId in validOrderIds }
+
+        val categorySales = validItems.groupBy { it.category.ifBlank { "General Menu" } }
+            .mapValues { entry ->
                 Pair(entry.value.sumOf { it.quantity }, entry.value.sumOf { it.price * it.quantity })
             }
             .toList()
@@ -185,7 +193,7 @@ object PdfGenerator {
             paint.color = Color.rgb(241, 245, 249)
             canvas.drawLine(margin, yPos + 8f, rightMargin, yPos + 8f, paint)
             yPos += 24f
-            if (yPos > 760f) break
+            if (yPos > 740f) break
         }
 
         // Footer Note
@@ -193,29 +201,133 @@ object PdfGenerator {
         paint.color = Color.rgb(148, 163, 184)
         paint.textSize = 10f
         canvas.drawLine(margin, yPos - 10f, rightMargin, yPos - 10f, paint)
-        canvas.drawText("Restaurant POS • Automated 12-Month Offline Report • Confidential", margin, yPos + 5f, paint)
+        canvas.drawText("Restaurant POS • Automated 12-Month Daily/Weekly/Monthly Report • Confidential", margin, yPos + 5f, paint)
 
         pdfDocument.finishPage(page)
 
-        try {
-            val file = File(context.cacheDir, "SalesReport_${reportType}.pdf")
+        return try {
+            val file = File(context.cacheDir, "SalesReport_${reportType}_${System.currentTimeMillis()}.pdf")
             pdfDocument.writeTo(FileOutputStream(file))
             pdfDocument.close()
-
-            val uri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                file
-            )
-            val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                type = "application/pdf"
-                putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                putExtra(android.content.Intent.EXTRA_SUBJECT, "$restaurantName - $reportType Sales & Profit Report")
-                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            context.startActivity(android.content.Intent.createChooser(shareIntent, "Download or Share Report (WhatsApp/Drive)"))
+            file
         } catch (e: Exception) {
             e.printStackTrace()
+            null
+        }
+    }
+
+    /**
+     * Standard Share Intent (Chooser)
+     */
+    fun generateAndSharePdf(
+        context: Context,
+        reportType: String,
+        orders: List<Order>,
+        items: List<OrderItem>
+    ) {
+        val file = createPdfFile(context, reportType, orders, items) ?: return
+        val settings = SettingsManager(context)
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "application/pdf"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_SUBJECT, "${settings.getRestaurantName()} - $reportType Sales Report")
+            putExtra(Intent.EXTRA_TEXT, "Here is the $reportType Sales and Profit Report for ${settings.getRestaurantName()}.")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(shareIntent, "Share Sales Report PDF"))
+    }
+
+    /**
+     * Send Sales Report PDF directly to WhatsApp
+     */
+    fun sharePdfToWhatsApp(
+        context: Context,
+        reportType: String,
+        orders: List<Order>,
+        items: List<OrderItem>
+    ) {
+        val file = createPdfFile(context, reportType, orders, items) ?: return
+        val settings = SettingsManager(context)
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+
+        val now = System.currentTimeMillis()
+        val filterTime = when (reportType) {
+            "Daily" -> now - 24 * 60 * 60 * 1000L
+            "Weekly" -> now - 7 * 24 * 60 * 60 * 1000L
+            "Monthly" -> now - 30L * 24 * 60 * 60 * 1000L
+            else -> 0L
+        }
+        val count = orders.count { it.status != "Cancelled" && it.timestamp >= filterTime }
+        val revenue = orders.filter { it.status != "Cancelled" && it.timestamp >= filterTime }.sumOf { it.totalAmount }
+
+        val caption = "📊 *${settings.getRestaurantName()} - $reportType Sales Report*\n" +
+                "Total Orders: $count\n" +
+                "Total Revenue: Rs. ${"%.0f".format(revenue)}\n" +
+                "Date: ${SimpleDateFormat("dd-MMM-yyyy", Locale.getDefault()).format(Date())}"
+
+        try {
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/pdf"
+                setPackage("com.whatsapp")
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_TEXT, caption)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            // WhatsApp not installed or failed, fallback to chooser
+            val fallbackIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/pdf"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_TEXT, caption)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(fallbackIntent, "Send PDF to WhatsApp / Share"))
+        }
+    }
+
+    /**
+     * Download / Save PDF file to device public Downloads folder
+     */
+    fun downloadPdfToDownloads(
+        context: Context,
+        reportType: String,
+        orders: List<Order>,
+        items: List<OrderItem>
+    ): File? {
+        val cachedFile = createPdfFile(context, reportType, orders, items) ?: return null
+        val fileName = "SalesReport_${reportType}_${SimpleDateFormat("yyyyMMdd_HHmm", Locale.getDefault()).format(Date())}.pdf"
+
+        return try {
+            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            if (!downloadsDir.exists()) downloadsDir.mkdirs()
+            val destFile = File(downloadsDir, fileName)
+
+            FileInputStream(cachedFile).use { input ->
+                FileOutputStream(destFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+            Toast.makeText(context, "PDF saved to Downloads: $fileName", Toast.LENGTH_LONG).show()
+
+            // Open or view saved PDF
+            try {
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", destFile)
+                val viewIntent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "application/pdf")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(viewIntent)
+            } catch (_: Exception) {}
+
+            destFile
+        } catch (e: Exception) {
+            Toast.makeText(context, "Saved in app documents: ${cachedFile.name}", Toast.LENGTH_SHORT).show()
+            cachedFile
         }
     }
 }

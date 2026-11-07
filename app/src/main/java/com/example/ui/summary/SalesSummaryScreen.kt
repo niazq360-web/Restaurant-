@@ -9,8 +9,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -105,13 +104,53 @@ fun SalesSummaryScreen(viewModel: PosViewModel, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Sales & Profit Analytics", fontWeight = FontWeight.Bold) },
+                title = { Text("Sales & Analytics", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back") }
                 },
                 actions = {
+                    // Send to WhatsApp
+                    IconButton(
+                        onClick = {
+                            PdfGenerator.sharePdfToWhatsApp(context, selectedPeriod, orders, allOrderItems)
+                        }
+                    ) {
+                        Icon(
+                            Icons.Default.Send,
+                            contentDescription = "Send to WhatsApp",
+                            tint = Color(0xFF25D366) // WhatsApp Green
+                        )
+                    }
+
+                    // Download PDF
+                    IconButton(
+                        onClick = {
+                            PdfGenerator.downloadPdfToDownloads(context, selectedPeriod, orders, allOrderItems)
+                        }
+                    ) {
+                        Icon(Icons.Default.Download, contentDescription = "Download PDF")
+                    }
+
+                    // Full Menu
                     IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.Share, "Share Report") }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Share via WhatsApp") },
+                            leadingIcon = { Icon(Icons.Default.Send, null, tint = Color(0xFF25D366)) },
+                            onClick = {
+                                showMenu = false
+                                PdfGenerator.sharePdfToWhatsApp(context, selectedPeriod, orders, allOrderItems)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Download PDF File") },
+                            leadingIcon = { Icon(Icons.Default.Download, null) },
+                            onClick = {
+                                showMenu = false
+                                PdfGenerator.downloadPdfToDownloads(context, selectedPeriod, orders, allOrderItems)
+                            }
+                        )
+                        HorizontalDivider()
                         DropdownMenuItem(
                             text = { Text("Daily Report (PDF)") },
                             onClick = { showMenu = false; PdfGenerator.generateAndSharePdf(context, "Daily", orders, allOrderItems) }
@@ -141,17 +180,77 @@ fun SalesSummaryScreen(viewModel: PosViewModel, onBack: () -> Unit) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Period Selector Chips
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
+            // Period Selector Chips & Quick Export Actions
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                items(periods) { period ->
-                    FilterChip(
-                        selected = selectedPeriod == period,
-                        onClick = { selectedPeriod = period },
-                        label = { Text(period, fontWeight = FontWeight.Bold) }
-                    )
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    items(periods) { period ->
+                        FilterChip(
+                            selected = selectedPeriod == period,
+                            onClick = { selectedPeriod = period },
+                            label = { Text(period, fontWeight = FontWeight.Bold) }
+                        )
+                    }
+                }
+            }
+
+            // Quick PDF & WhatsApp Action Banner
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "$selectedPeriod Report Ready",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            text = "Send PDF to WhatsApp or save to device storage.",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Button(
+                            onClick = {
+                                PdfGenerator.sharePdfToWhatsApp(context, selectedPeriod, orders, allOrderItems)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.White)
+                            Spacer(Modifier.width(4.dp))
+                            Text("WhatsApp", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                PdfGenerator.downloadPdfToDownloads(context, selectedPeriod, orders, allOrderItems)
+                            },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Download", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
 

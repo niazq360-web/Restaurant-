@@ -161,6 +161,12 @@ class PosViewModel(private val repository: PosRepository) : ViewModel() {
             repository.updateOrder(order)
         }
     }
+
+    fun updateDeliveryPriority(order: Order, priority: Int) {
+        viewModelScope.launch {
+            repository.updateOrder(order.copy(deliveryPriority = priority))
+        }
+    }
     
     fun deleteOrder(orderId: Int) {
         viewModelScope.launch {

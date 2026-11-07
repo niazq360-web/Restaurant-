@@ -1,0 +1,50 @@
+{
+  "entities": {
+    "users": {
+      "description": "Registered staff user profiles with role-based access control",
+      "fields": {
+        "uid": { "type": "string", "description": "Firebase Authentication User UID" },
+        "fullName": { "type": "string", "description": "Full name of the staff member" },
+        "email": { "type": "string", "description": "Staff email address" },
+        "role": { "type": "string", "enum": ["admin", "manager", "cashier"], "description": "Assigned access role (Default: cashier)" },
+        "createdAt": { "type": "number", "description": "Epoch timestamp of account registration" }
+      }
+    },
+    "orders": {
+      "description": "Sales bills and customer order history",
+      "fields": {
+        "id": { "type": "number", "description": "Unique bill/order ID" },
+        "customerName": { "type": "string", "description": "Customer name" },
+        "customerPhone": { "type": "string", "description": "Customer phone number" },
+        "totalAmount": { "type": "number", "description": "Total amount charged" },
+        "discountAmount": { "type": "number", "description": "Discount applied" },
+        "paymentMethod": { "type": "string", "description": "Cash, Card, Online QR" },
+        "status": { "type": "string", "description": "Completed, Pending, Cancelled" },
+        "orderType": { "type": "string", "description": "Dine-in, Takeaway, Delivery" },
+        "timestamp": { "type": "number", "description": "Order creation epoch millis" }
+      }
+    },
+    "products": {
+      "description": "Restaurant menu items, juices, dishes and pricing",
+      "fields": {
+        "id": { "type": "number", "description": "Item ID" },
+        "name": { "type": "string", "description": "Item title" },
+        "category": { "type": "string", "description": "Food category or Juice" },
+        "price": { "type": "number", "description": "Base sale price in Rs" },
+        "costPrice": { "type": "number", "description": "Inventory cost in Rs" },
+        "imageUri": { "type": "string", "description": "Local or cloud image URL" }
+      }
+    },
+    "workers": {
+      "description": "Restaurant employee profiles and payroll data",
+      "fields": {
+        "id": { "type": "number", "description": "Worker ID" },
+        "name": { "type": "string", "description": "Worker full name" },
+        "phone": { "type": "string", "description": "Worker contact number" },
+        "role": { "type": "string", "description": "Designation (Waiter, Chef, Cashier)" },
+        "salary": { "type": "number", "description": "Monthly wage in Rs" },
+        "status": { "type": "string", "description": "Active, Left, Terminated" }
+      }
+    }
+  }
+}
